@@ -42,6 +42,16 @@ npm run typecheck
 
 The extension only uses NoteDeck's local endpoints: `GET /api/capabilities`, `GET /api/deck/columns`, `POST /api/capabilities/{id}/execute`, plus `notedeck://` deep links. Nothing is sent anywhere else. `ray lint` / `ray build` run on Linux (WSL) too; only `ray develop` needs the Raycast app.
 
+## Publishing to the Raycast Store
+
+Done from a machine with Raycast installed (macOS, or Raycast for Windows).
+
+1. `npm install && npm run build`, then open the extension in Raycast and try every command against a running NoteDeck (the distribution build, not `npm run dev`).
+2. Take up to 6 screenshots (PNG, 2000×1250) and put them in `metadata/` as `notedeck-1.png`, `notedeck-2.png`, …
+3. Check `package.json`: `author` is the Raycast username (`hitalin`), `license` is `MIT`, `platforms` lists macOS and Windows, `package-lock.json` is committed.
+4. **Hide NoteDeck / Show NoteDeck** need NoteDeck 1.80 or later. Submit after that release, or drop the two commands from `package.json` for the first submission.
+5. `npm run publish` opens a pull request against raycast/extensions. Review usually takes a few weeks; answer reviewer comments on that PR.
+
 ## License
 
 MIT. NoteDeck itself is AGPL-3.0; this extension is a separate client of its public API.
