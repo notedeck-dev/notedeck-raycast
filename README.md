@@ -4,12 +4,18 @@ Post, search and jump around [NoteDeck](https://github.com/notedeck-dev/notedeck
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| **Post Note** | Write a note (account / CW / visibility) and post it. NoteDeck shows its usual confirmation before sending. |
-| **Search My Notes** | Search your own notes and local memos in NoteDeck's archive. Enter opens the note in NoteDeck. |
-| **Jump to Column** | Pick a deck column and focus it in NoteDeck. |
-| **New Memo** | Create a local memo. NoteDeck confirms before writing. |
+| Command | What it does | Needs |
+| --- | --- | --- |
+| **Post Note** | Write a note (account / CW / visibility) and post it. NoteDeck shows its usual confirmation before sending. ⌘O hands the text to NoteDeck's own post form instead. | token + `notes.write` (⌘O: nothing) |
+| **Open Post Form** | Open NoteDeck's post form, optionally with text (`notedeck://compose`). | nothing |
+| **Search My Notes** | Search your own notes and local memos in NoteDeck's archive. Empty query = recent. Enter opens the note in NoteDeck. | token + `notes.readArchive`, `memos.read` |
+| **Jump to Column** | Pick a deck column and focus it in NoteDeck. | token (`deck.read`, on by default) |
+| **Switch Deck Profile** | Switch the deck profile by name (`notedeck://profile/<name>`). | nothing |
+| **Ask AI** | Open NoteDeck's AI column with the prompt filled in (`notedeck://ai`). Sending is up to you. | nothing |
+| **New Memo** | Create a local memo. NoteDeck confirms before writing. | token + `memos.write` |
+| **Run Capability** | Browse every NoteDeck capability (what the command palette, plugins and AI can do) and run one with parameters. Results are shown as JSON. | token + whatever the capability needs |
+
+Commands marked "nothing" use `notedeck://` deep links: no token, no permission, no confirmation dialog, because you are the one clicking. They just need NoteDeck installed (it is launched if not running).
 
 ## Setup
 
@@ -33,7 +39,7 @@ npm run lint
 npm run typecheck
 ```
 
-The extension only uses public endpoints of NoteDeck: `GET /api/deck/columns` and `POST /api/capabilities/{id}/execute`, plus `notedeck://` deep links to focus the app. Nothing is sent anywhere else.
+The extension only uses NoteDeck's local endpoints: `GET /api/capabilities`, `GET /api/deck/columns`, `POST /api/capabilities/{id}/execute`, plus `notedeck://` deep links. Nothing is sent anywhere else. `ray lint` / `ray build` run on Linux (WSL) too; only `ray develop` needs the Raycast app.
 
 ## License
 

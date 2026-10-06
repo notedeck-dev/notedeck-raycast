@@ -47,9 +47,10 @@ export default function Search() {
             return hits.filter((h) => h.user?.id === account.userId).map((h) => ({ ...h, account }));
           }),
         ),
-        execute<Memo[]>("memos.list", { query: q.trim(), limit: 20 }).catch(() => [] as Memo[]),
+        execute<Memo[]>("memos.list", { ...(query ? { query } : {}), limit: 20 }).catch(() => [] as Memo[]),
       ]);
-      return { notes: perAccount.flat(), memos };
+      const notes = perAccount.flat().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      return { notes, memos };
     },
     [query, accounts.data],
   );
@@ -63,7 +64,7 @@ export default function Search() {
   return (
     <List
       isLoading={accounts.isLoading || results.isLoading}
-      searchBarPlaceholder="Search your notes and memos…"
+      searchBarPlaceholder="Search your notes and memos (empty = recent)…"
       onSearchTextChange={setQuery}
       throttle
     >

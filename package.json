@@ -2,24 +2,42 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "notedeck",
   "title": "NoteDeck",
-  "description": "Post, search and jump around NoteDeck (Misskey client, Misskey Pro) from Raycast through its local HTTP API.",
+  "description": "Post, search and jump around NoteDeck (Misskey client, Misskey Pro) from Raycast through its local HTTP API and notedeck:// links.",
   "icon": "icon.png",
   "author": "hitalin",
-  "categories": ["Communication", "Productivity"],
+  "categories": [
+    "Communication",
+    "Productivity"
+  ],
   "license": "MIT",
   "commands": [
     {
       "name": "post",
       "title": "Post Note",
       "subtitle": "NoteDeck",
-      "description": "Write a note and post it through NoteDeck (confirmed in the NoteDeck window).",
+      "description": "Write a note and post it through NoteDeck (confirmed in the NoteDeck window), or hand it to NoteDeck's post form.",
       "mode": "view"
+    },
+    {
+      "name": "compose",
+      "title": "Open Post Form",
+      "subtitle": "NoteDeck",
+      "description": "Open NoteDeck's post form, optionally with text already filled in.",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "text",
+          "placeholder": "Text",
+          "type": "text",
+          "required": false
+        }
+      ]
     },
     {
       "name": "search",
       "title": "Search My Notes",
       "subtitle": "NoteDeck",
-      "description": "Search your own notes and memos in NoteDeck's local archive.",
+      "description": "Search your own notes and memos in NoteDeck's local archive. Empty query shows recent ones.",
       "mode": "view"
     },
     {
@@ -30,10 +48,47 @@
       "mode": "view"
     },
     {
+      "name": "profile",
+      "title": "Switch Deck Profile",
+      "subtitle": "NoteDeck",
+      "description": "Switch NoteDeck's deck profile by name.",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "name",
+          "placeholder": "Profile name",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "ask-ai",
+      "title": "Ask AI",
+      "subtitle": "NoteDeck",
+      "description": "Open NoteDeck's AI column with a prompt filled in.",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "prompt",
+          "placeholder": "Prompt",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
       "name": "memo",
       "title": "New Memo",
       "subtitle": "NoteDeck",
       "description": "Create a local memo in NoteDeck.",
+      "mode": "view"
+    },
+    {
+      "name": "run",
+      "title": "Run Capability",
+      "subtitle": "NoteDeck",
+      "description": "Browse every NoteDeck capability and run one with parameters.",
       "mode": "view"
     }
   ],

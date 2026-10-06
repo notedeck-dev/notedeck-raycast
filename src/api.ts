@@ -1,4 +1,4 @@
-import { getPreferenceValues } from "@raycast/api";
+import { getPreferenceValues, open } from "@raycast/api";
 
 /**
  * NoteDeck の内蔵 HTTP API (既定 127.0.0.1:19820) の薄いクライアント。
@@ -30,6 +30,26 @@ export interface DeckColumn {
 }
 
 export type NoteVisibility = "public" | "home" | "followers" | "specified";
+export const NOTE_VISIBILITIES: NoteVisibility[] = ["public", "home", "followers", "specified"];
+
+/** `GET /api/capabilities` の 1 行 (宣言表の署名) */
+export interface CapabilityParam {
+  type: "string" | "number" | "boolean" | "array" | "object";
+  description?: string;
+  optional?: boolean;
+  enum?: string[];
+}
+export interface CapabilityInfo {
+  id: string;
+  name: string;
+  label: string;
+  category: string;
+  description: string;
+  params: Record<string, CapabilityParam>;
+  returns: { type: string; description?: string };
+  permissions: string[];
+  requiresConfirmation: boolean;
+}
 
 /** `{ ok: false, code, error }` を HTTP status ごと持つエラー */
 export class NoteDeckApiError extends Error {
@@ -92,8 +112,26 @@ export async function listColumns(): Promise<DeckColumn[]> {
   return request<DeckColumn[]>("GET", "/api/deck/columns");
 }
 
+export async function listCapabilities(): Promise<CapabilityInfo[]> {
+  return request<CapabilityInfo[]>("GET", "/api/capabilities");
+}
+
 export function accountLabel(a: AccountPublic): string {
-  return `@${a.username}@${a.host}`;
+  const handle = `@${a.username}@${a.host}`;
+  return a.displayName ? `${a.displayName} (${handle})` : handle;
+}
+
+/**
+ * `notedeck://` deep link で NoteDeck 側を動かす。トークンも権限も要らない
+ * (本人がリンクを踏んだ扱い)。NoteDeck が起動していなければ OS が起動する。
+ */
+export async function openDeepLink(path: string, params?: Record<string, string | undefined>): Promise<void> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params ?? {})) {
+    if (v !== undefined && v !== "") qs.set(k, v);
+  }
+  const q = qs.toString();
+  await open(`notedeck://${path}${q ? `?${q}` : ""}`);
 }
 
 /** 人向けのエラー文。NoteDeck 側の権限 / 確認の仕組みに沿って案内する */
@@ -109,10 +147,12 @@ export function describeError(e: unknown): { title: string; message?: string } {
     case "permission_denied":
       return {
         title: "Not allowed for external tools",
-        message: "Allow it in NoteDeck: Settings → Permissions → External (API tokens).",
+        message: `Allow it under Settings → Permissions → External. ${e.message}`,
       };
     case "user_cancelled":
       return { title: "Cancelled in NoteDeck" };
+    case "unknown_capability":
+      return { title: "Unknown capability", message: e.message };
     default:
       return { title: e.code, message: e.message };
   }
