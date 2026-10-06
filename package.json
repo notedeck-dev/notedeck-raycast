@@ -1,0 +1,77 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "notedeck",
+  "title": "NoteDeck",
+  "description": "Post, search and jump around NoteDeck (Misskey client, Misskey Pro) from Raycast through its local HTTP API.",
+  "icon": "icon.png",
+  "author": "hitalin",
+  "categories": ["Communication", "Productivity"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "post",
+      "title": "Post Note",
+      "subtitle": "NoteDeck",
+      "description": "Write a note and post it through NoteDeck (confirmed in the NoteDeck window).",
+      "mode": "view"
+    },
+    {
+      "name": "search",
+      "title": "Search My Notes",
+      "subtitle": "NoteDeck",
+      "description": "Search your own notes and memos in NoteDeck's local archive.",
+      "mode": "view"
+    },
+    {
+      "name": "columns",
+      "title": "Jump to Column",
+      "subtitle": "NoteDeck",
+      "description": "Focus a deck column in NoteDeck.",
+      "mode": "view"
+    },
+    {
+      "name": "memo",
+      "title": "New Memo",
+      "subtitle": "NoteDeck",
+      "description": "Create a local memo in NoteDeck.",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "baseUrl",
+      "title": "NoteDeck API URL",
+      "description": "Base URL of the built-in HTTP API. Leave the default unless you changed the port.",
+      "type": "textfield",
+      "required": false,
+      "default": "http://127.0.0.1:19820"
+    },
+    {
+      "name": "token",
+      "title": "API Token",
+      "description": "Persistent API token issued in NoteDeck: Settings → Permissions → API tokens.",
+      "type": "password",
+      "required": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.6.3",
+    "@raycast/utils": "^2.3.2"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.2.0",
+    "@types/node": "22.19.17",
+    "@types/react": "19.0.10",
+    "eslint": "^9.39.0",
+    "prettier": "^3.9.0",
+    "typescript": "^5.9.0"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "typecheck": "tsc --noEmit",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
