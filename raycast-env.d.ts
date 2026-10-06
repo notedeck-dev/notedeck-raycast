@@ -34,6 +34,10 @@ declare namespace Preferences {
   export type Memo = ExtensionPreferences & {}
   /** Preferences accessible in the `run` command */
   export type Run = ExtensionPreferences & {}
+  /** Preferences accessible in the `boss` command */
+  export type Boss = ExtensionPreferences & {}
+  /** Preferences accessible in the `show` command */
+  export type Show = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -62,5 +66,9 @@ declare namespace Arguments {
   export type Memo = {}
   /** Arguments passed to the `run` command */
   export type Run = {}
+  /** Arguments passed to the `boss` command */
+  export type Boss = {}
+  /** Arguments passed to the `show` command */
+  export type Show = {}
 }
 

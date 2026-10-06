@@ -90,6 +90,20 @@
       "subtitle": "NoteDeck",
       "description": "Browse every NoteDeck capability and run one with parameters.",
       "mode": "view"
+    },
+    {
+      "name": "boss",
+      "title": "Hide NoteDeck",
+      "subtitle": "NoteDeck",
+      "description": "Hide NoteDeck's window right away (Boss Key). Needs NoteDeck 1.80 or later.",
+      "mode": "no-view"
+    },
+    {
+      "name": "show",
+      "title": "Show NoteDeck",
+      "subtitle": "NoteDeck",
+      "description": "Bring NoteDeck's window to the front. Needs NoteDeck 1.80 or later.",
+      "mode": "no-view"
     }
   ],
   "preferences": [

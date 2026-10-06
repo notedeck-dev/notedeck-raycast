@@ -7,4 +7,5 @@
 - Search My Notes (own notes + memos, recent when empty)
 - Jump to Column
 - New Memo
+- Hide NoteDeck / Show NoteDeck (Boss Key)
 - Run Capability (browse and run any NoteDeck capability with parameters)

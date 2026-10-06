@@ -13,6 +13,7 @@ Post, search and jump around [NoteDeck](https://github.com/notedeck-dev/notedeck
 | **Switch Deck Profile** | Switch the deck profile by name (`notedeck://profile/<name>`). | nothing |
 | **Ask AI** | Open NoteDeck's AI column with the prompt filled in (`notedeck://ai`). Sending is up to you. | nothing |
 | **New Memo** | Create a local memo. NoteDeck confirms before writing. | token + `memos.write` |
+| **Hide NoteDeck** / **Show NoteDeck** | Boss Key from Raycast: hide the window, or bring it back to the front (`app.hide` / `app.show`, NoteDeck 1.80+). | token (no permission) |
 | **Run Capability** | Browse every NoteDeck capability (what the command palette, plugins and AI can do) and run one with parameters. Results are shown as JSON. | token + whatever the capability needs |
 
 Commands marked "nothing" use `notedeck://` deep links: no token, no permission, no confirmation dialog, because you are the one clicking. They just need NoteDeck installed (it is launched if not running).
