@@ -1,10 +1,11 @@
 import { Action, ActionPanel, Icon, List, open, showToast, Toast } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { type AccountPublic, type DeckColumn, describeError, listAccounts, listColumns } from "./api";
+import { EmptyView } from "./empty";
 
 /** カラム一覧 → 選ぶと `notedeck://column/<id>` で NoteDeck 側をフォーカスする */
 export default function Columns() {
-  const { data, isLoading } = usePromise(
+  const { data, isLoading, error, revalidate } = usePromise(
     async () => {
       const [columns, accounts] = await Promise.all([listColumns(), listAccounts().catch(() => [] as AccountPublic[])]);
       const byId = new Map(accounts.map((a) => [a.id, a]));
@@ -20,6 +21,7 @@ export default function Columns() {
 
   return (
     <List isLoading={isLoading} searchBarPlaceholder="Filter columns…">
+      <EmptyView error={error} isLoading={isLoading} title="No columns" />
       {(data ?? []).map(({ column, account }) => (
         <List.Item
           key={column.id}
@@ -30,7 +32,11 @@ export default function Columns() {
           keywords={[column.type, account?.host ?? ""]}
           actions={
             <ActionPanel>
-              <Action title="Focus in NoteDeck" icon={Icon.ArrowRight} onAction={() => focusColumn(column)} />
+              <Action
+                title="Focus in NoteDeck"
+                icon={Icon.ArrowRight}
+                onAction={() => focusColumn(column, revalidate)}
+              />
               <Action.CopyToClipboard title="Copy Column ID" content={column.id} />
             </ActionPanel>
           }
@@ -46,6 +52,14 @@ function columnTitle(c: DeckColumn): string {
   return `${c.type}${tl}`;
 }
 
-async function focusColumn(c: DeckColumn) {
+async function focusColumn(c: DeckColumn, revalidate: () => void) {
+  // 本体は無い id の deep link を黙って無視するので、今もあるかを先に確かめる。
+  // 一覧が取れないとき (NoteDeck を閉じた等) はそのまま開く — deep link が起動する
+  const columns = await listColumns().catch(() => undefined);
+  if (columns && !columns.some((x) => x.id === c.id)) {
+    await showToast({ style: Toast.Style.Failure, title: "Column no longer exists" });
+    revalidate();
+    return;
+  }
   await open(`notedeck://column/${encodeURIComponent(c.id)}`);
 }

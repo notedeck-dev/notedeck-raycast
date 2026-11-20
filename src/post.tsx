@@ -96,7 +96,9 @@ export default function Post() {
         <Form.Dropdown.Item value="followers" title="Followers" icon={Icon.Lock} />
         <Form.Dropdown.Item value="specified" title="Direct" icon={Icon.Envelope} />
       </Form.Dropdown>
-      <Form.Description text="Post: sent through the API after you confirm in the NoteDeck window (needs the 'notes.write' permission for external tools). ⌘O: open NoteDeck's own post form with this text instead — no permission needed." />
+      <Form.Description
+        text={`Post: sent through the API after you confirm in the NoteDeck window (needs the 'notes.write' permission for external tools). ${process.platform === "win32" ? "Ctrl+O" : "⌘O"}: open NoteDeck's own post form with this text instead — no permission needed.`}
+      />
     </Form>
   );
 }

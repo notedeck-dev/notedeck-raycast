@@ -1,4 +1,5 @@
 import { getPreferenceValues, open, openExtensionPreferences, type Toast } from "@raycast/api";
+import { deepLinkUrl, errorText, isLoopback, readErrorBody, SHORT_TIMEOUT_MS } from "./logic";
 
 /**
  * NoteDeck の内蔵 HTTP API (既定 127.0.0.1:19820) の薄いクライアント。
@@ -69,15 +70,7 @@ function prefs(): Required<Preferences> {
   return { baseUrl, token: p.token?.trim() ?? "" };
 }
 
-function isLoopback(baseUrl: string): boolean {
-  try {
-    return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(baseUrl).hostname);
-  } catch {
-    return false;
-  }
-}
-
-async function request<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+async function request<T>(method: "GET" | "POST", path: string, body?: unknown, timeoutMs?: number): Promise<T> {
   const { baseUrl, token } = prefs();
   // トークンは手元の NoteDeck にしか送らない (平文 http で外へ出さない)
   if (!isLoopback(baseUrl)) throw new NoteDeckApiError(0, "not_loopback", baseUrl);
@@ -91,44 +84,49 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown):
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: timeoutMs !== undefined ? AbortSignal.timeout(timeoutMs) : undefined,
     });
   } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") throw new NoteDeckApiError(0, "timeout", e.message);
     // 接続できない = NoteDeck が起動していない (または URL / ポート違い)
     throw new NoteDeckApiError(0, "unreachable", e instanceof Error ? e.message : String(e));
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
-    // execute は `{ ok: false, code, error }`、それ以外のルートは `{ error: CODE, message }` を返す
-    if (typeof data.code !== "string" && typeof data.error === "string" && typeof data.message === "string") {
-      throw new NoteDeckApiError(res.status, data.error.toLowerCase(), data.message);
-    }
-    const code = typeof data.code === "string" ? data.code : res.status === 401 ? "unauthorized" : "http_error";
-    const message = typeof data.error === "string" ? data.error : `${res.status} ${res.statusText}`;
+    const { code, message } = readErrorBody(res.status, res.statusText, data);
     throw new NoteDeckApiError(res.status, code, message);
   }
   return data as T;
 }
 
-/** `POST /api/capabilities/{id}/execute` → `result` */
-export async function execute<T>(capabilityId: string, params?: Record<string, unknown>): Promise<T> {
+/**
+ * `POST /api/capabilities/{id}/execute` → `result`。
+ * `timeoutMs` を省くと待ち続ける: 確認ダイアログは人のペースで答えるもの (本体の上限は 30 分)
+ */
+export async function execute<T>(
+  capabilityId: string,
+  params?: Record<string, unknown>,
+  timeoutMs?: number,
+): Promise<T> {
   const data = await request<{ ok: true; result: T }>(
     "POST",
     `/api/capabilities/${encodeURIComponent(capabilityId)}/execute`,
     params ?? {},
+    timeoutMs,
   );
   return data.result;
 }
 
 export async function listAccounts(): Promise<AccountPublic[]> {
-  return execute<AccountPublic[]>("account.list");
+  return execute<AccountPublic[]>("account.list", undefined, SHORT_TIMEOUT_MS);
 }
 
 export async function listColumns(): Promise<DeckColumn[]> {
-  return request<DeckColumn[]>("GET", "/api/deck/columns");
+  return request<DeckColumn[]>("GET", "/api/deck/columns", undefined, SHORT_TIMEOUT_MS);
 }
 
 export async function listCapabilities(): Promise<CapabilityInfo[]> {
-  return request<CapabilityInfo[]>("GET", "/api/capabilities");
+  return request<CapabilityInfo[]>("GET", "/api/capabilities", undefined, SHORT_TIMEOUT_MS);
 }
 
 export function accountLabel(a: AccountPublic): string {
@@ -141,12 +139,7 @@ export function accountLabel(a: AccountPublic): string {
  * (本人がリンクを踏んだ扱い)。NoteDeck が起動していなければ OS が起動する。
  */
 export async function openDeepLink(path: string, params?: Record<string, string | undefined>): Promise<void> {
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(params ?? {})) {
-    if (v !== undefined && v !== "") qs.set(k, v);
-  }
-  const q = qs.toString();
-  await open(`notedeck://${path}${q ? `?${q}` : ""}`);
+  await open(deepLinkUrl(path, params));
 }
 
 /** 人向けのエラー文。NoteDeck 側の権限 / 確認の仕組みに沿って案内する */
@@ -155,41 +148,15 @@ export function describeError(e: unknown): {
   message?: string;
   primaryAction?: Toast.ActionOptions;
 } {
-  const openPreferences = { title: "Open Extension Preferences", onAction: () => openExtensionPreferences() };
   if (!(e instanceof NoteDeckApiError)) {
     return { title: "Failed", message: e instanceof Error ? e.message : String(e) };
   }
-  switch (e.code) {
-    case "unreachable":
-      return { title: "NoteDeck is not running", message: "Start NoteDeck, or check the API URL in preferences." };
-    case "no_token":
-      return {
-        title: "API token is not set",
-        message: "Issue a token in NoteDeck (Settings → Permissions → API tokens) and paste it into the preferences.",
-        primaryAction: openPreferences,
-      };
-    case "not_loopback":
-      return {
-        title: "API URL must be on this machine",
-        message: `Use 127.0.0.1, localhost or [::1]. The token was not sent to ${e.message}`,
-        primaryAction: openPreferences,
-      };
-    case "unauthorized":
-      return {
-        title: "Invalid API token",
-        message: "Issue a token in NoteDeck: Settings → Permissions → API tokens.",
-        primaryAction: openPreferences,
-      };
-    case "permission_denied":
-      return {
-        title: "Not allowed for external tools",
-        message: `Allow it under Settings → Permissions → External. ${e.message}`,
-      };
-    case "user_cancelled":
-      return { title: "Cancelled in NoteDeck" };
-    case "unknown_capability":
-      return { title: "Unknown capability", message: e.message };
-    default:
-      return { title: e.code, message: e.message };
-  }
+  const { title, message, preferences } = errorText(e.code, e.message);
+  return {
+    title,
+    message,
+    ...(preferences
+      ? { primaryAction: { title: "Open Extension Preferences", onAction: () => openExtensionPreferences() } }
+      : {}),
+  };
 }

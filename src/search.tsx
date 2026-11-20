@@ -2,6 +2,8 @@ import { Action, ActionPanel, Icon, List, open, showToast, Toast } from "@raycas
 import { usePromise } from "@raycast/utils";
 import { useState } from "react";
 import { type AccountPublic, describeError, execute, listAccounts } from "./api";
+import { EmptyView } from "./empty";
+import { deepLinkUrl, ownNotes, SHORT_TIMEOUT_MS } from "./logic";
 
 /**
  * `notes.searchArchive` の 1 行 (note projection + accountId / serverHost)。
@@ -37,7 +39,12 @@ export default function Search() {
 
   const results = usePromise(
     async (q: string, list: AccountPublic[] | undefined) => {
-      if (!list) return { notes: [] as Array<ArchiveHit & { account: AccountPublic }>, memos: [] as Memo[] };
+      if (!list)
+        return {
+          notes: [] as Array<ArchiveHit & { account: AccountPublic }>,
+          memos: [] as Memo[],
+          failed: undefined as unknown,
+        };
       // 片方が権限で弾かれても、もう片方の結果は出す (エラーは 1 件だけ知らせる)
       let failed: unknown;
       const keep = (e: unknown): never[] => {
@@ -47,22 +54,25 @@ export default function Search() {
       const [perAccount, memos] = await Promise.all([
         Promise.all(
           list.map(async (account) => {
-            const hits = await execute<ArchiveHit[]>("notes.searchArchive", {
-              ...(q.trim() ? { query: q.trim() } : {}),
-              // 自分の投稿だけ: 索引はそのアカウントの画面に流れてきた全員のノートを持つ
-              author: `${account.username}@${account.host}`,
-              accountIds: [account.id],
-              includePrivate: true,
-              limit: 50,
-            }).catch(keep);
-            return hits.filter((h) => h.userId === account.userId).map((h) => ({ ...h, account }));
+            const hits = await execute<ArchiveHit[]>(
+              "notes.searchArchive",
+              {
+                ...(q.trim() ? { query: q.trim() } : {}),
+                // 自分の投稿だけ: 索引はそのアカウントの画面に流れてきた全員のノートを持つ
+                author: `${account.username}@${account.host}`,
+                accountIds: [account.id],
+                includePrivate: true,
+                limit: 50,
+              },
+              SHORT_TIMEOUT_MS,
+            ).catch(keep);
+            return { account, hits };
           }),
         ),
-        execute<Memo[]>("memos.list", { ...(q ? { query: q } : {}), limit: 20 }).catch(keep),
+        execute<Memo[]>("memos.list", { ...(q ? { query: q } : {}), limit: 20 }, SHORT_TIMEOUT_MS).catch(keep),
       ]);
       if (failed) onError(failed);
-      const notes = perAccount.flat().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      return { notes, memos };
+      return { notes: ownNotes(perAccount), memos, failed };
     },
     [query, accounts.data],
     { onError },
@@ -75,6 +85,11 @@ export default function Search() {
       onSearchTextChange={setQuery}
       throttle
     >
+      <EmptyView
+        error={accounts.error ?? results.error ?? results.data?.failed}
+        isLoading={accounts.isLoading || results.isLoading}
+        title={query.trim() ? "No notes or memos found" : "No notes or memos yet"}
+      />
       <List.Section title="My Notes" subtitle={String(results.data?.notes.length ?? 0)}>
         {(results.data?.notes ?? []).map((n) => (
           <List.Item
@@ -89,7 +104,7 @@ export default function Search() {
                   icon={Icon.ArrowRight}
                   onAction={() =>
                     open(
-                      `notedeck://${n.account.host}/note/${encodeURIComponent(n.id)}?account=${encodeURIComponent(n.account.userId)}`,
+                      deepLinkUrl(`${n.account.host}/note/${encodeURIComponent(n.id)}`, { account: n.account.userId }),
                     )
                   }
                 />

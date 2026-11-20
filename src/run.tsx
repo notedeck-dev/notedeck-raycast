@@ -1,7 +1,9 @@
 import { Action, ActionPanel, Detail, Form, Icon, List, showToast, Toast, useNavigation } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { useState } from "react";
-import { type CapabilityInfo, type CapabilityParam, describeError, execute, listCapabilities } from "./api";
+import { type CapabilityInfo, describeError, execute, listCapabilities } from "./api";
+import { EmptyView } from "./empty";
+import { executeTimeout, parseParam } from "./logic";
 
 /**
  * NoteDeck の capability を一覧から選んで実行する。コマンドパレットで
@@ -10,7 +12,7 @@ import { type CapabilityInfo, type CapabilityParam, describeError, execute, list
  * NoteDeck の窓に出る。
  */
 export default function Run() {
-  const { data, isLoading } = usePromise(listCapabilities, [], {
+  const { data, isLoading, error } = usePromise(listCapabilities, [], {
     onError: (e) => {
       showToast({ style: Toast.Style.Failure, ...describeError(e) });
     },
@@ -25,6 +27,7 @@ export default function Run() {
 
   return (
     <List isLoading={isLoading} searchBarPlaceholder="Search capabilities…" isShowingDetail>
+      <EmptyView error={error} isLoading={isLoading} title="No capabilities" />
       {Array.from(byCategory.entries()).map(([category, caps]) => (
         <List.Section key={category} title={category} subtitle={String(caps.length)}>
           {caps.map((cap) => (
@@ -113,7 +116,7 @@ function RunForm({ cap }: { cap: CapabilityInfo }) {
       title: cap.requiresConfirmation ? "Waiting for confirmation in NoteDeck…" : "Running…",
     });
     try {
-      const result = await execute<unknown>(cap.id, params);
+      const result = await execute<unknown>(cap.id, params, executeTimeout(cap, params));
       toast.hide();
       push(<ResultView cap={cap} result={result} />);
     } catch (e) {
@@ -196,39 +199,6 @@ function RunForm({ cap }: { cap: CapabilityInfo }) {
       })}
     </Form>
   );
-}
-
-function parseParam(p: CapabilityParam, raw: string | boolean): unknown | Error {
-  if (typeof raw === "boolean") return raw;
-  switch (p.type) {
-    case "number": {
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : new Error("Not a number");
-    }
-    case "array": {
-      const t = raw.trim();
-      if (t.startsWith("[")) {
-        try {
-          return JSON.parse(t);
-        } catch {
-          return new Error("Invalid JSON array");
-        }
-      }
-      return t
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-    case "object": {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return new Error("Invalid JSON object");
-      }
-    }
-    default:
-      return raw;
-  }
 }
 
 function ResultView({ cap, result }: { cap: CapabilityInfo; result: unknown }) {
