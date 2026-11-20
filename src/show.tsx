@@ -7,7 +7,6 @@ export default async function Show() {
     await execute("app.show");
     await showHUD("NoteDeck shown");
   } catch (e) {
-    const { title, message } = describeError(e);
-    await showToast({ style: Toast.Style.Failure, title, message });
+    await showToast({ style: Toast.Style.Failure, ...describeError(e) });
   }
 }

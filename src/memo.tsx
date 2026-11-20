@@ -23,10 +23,11 @@ export default function Memo() {
         toast.title = "Memo created";
         await popToRoot();
       } catch (e) {
-        const { title, message } = describeError(e);
+        const { title, message, primaryAction } = describeError(e);
         toast.style = Toast.Style.Failure;
         toast.title = title;
         toast.message = message;
+        toast.primaryAction = primaryAction;
       }
     },
   });

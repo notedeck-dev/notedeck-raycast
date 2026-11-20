@@ -7,7 +7,6 @@ export default async function Boss() {
     await execute("app.hide");
     await showHUD("NoteDeck hidden");
   } catch (e) {
-    const { title, message } = describeError(e);
-    await showToast({ style: Toast.Style.Failure, title, message });
+    await showToast({ style: Toast.Style.Failure, ...describeError(e) });
   }
 }

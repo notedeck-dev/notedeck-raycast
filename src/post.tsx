@@ -25,7 +25,11 @@ interface PostForm {
  *   して開くだけ。権限も確認も要らず、送信はフォームで本人が押す
  */
 export default function Post() {
-  const accounts = usePromise(async () => (await listAccounts()).filter((a) => a.hasToken));
+  const accounts = usePromise(async () => (await listAccounts()).filter((a) => a.hasToken), [], {
+    onError: (e) => {
+      showToast({ style: Toast.Style.Failure, ...describeError(e) });
+    },
+  });
 
   const { handleSubmit, itemProps, values } = useForm<PostForm>({
     initialValues: { visibility: "public", cw: "" },
@@ -46,10 +50,11 @@ export default function Post() {
         toast.title = "Posted";
         await popToRoot();
       } catch (e) {
-        const { title, message } = describeError(e);
+        const { title, message, primaryAction } = describeError(e);
         toast.style = Toast.Style.Failure;
         toast.title = title;
         toast.message = message;
+        toast.primaryAction = primaryAction;
       }
     },
   });
@@ -61,11 +66,6 @@ export default function Post() {
       visibility: NOTE_VISIBILITIES.includes(values.visibility as NoteVisibility) ? values.visibility : undefined,
     });
     await showHUD("Opened NoteDeck's post form");
-  }
-
-  if (accounts.error) {
-    const { title, message } = describeError(accounts.error);
-    showToast({ style: Toast.Style.Failure, title, message });
   }
 
   return (

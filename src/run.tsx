@@ -10,11 +10,11 @@ import { type CapabilityInfo, type CapabilityParam, describeError, execute, list
  * NoteDeck の窓に出る。
  */
 export default function Run() {
-  const { data, isLoading, error } = usePromise(listCapabilities);
-  if (error) {
-    const { title, message } = describeError(error);
-    showToast({ style: Toast.Style.Failure, title, message });
-  }
+  const { data, isLoading } = usePromise(listCapabilities, [], {
+    onError: (e) => {
+      showToast({ style: Toast.Style.Failure, ...describeError(e) });
+    },
+  });
 
   const byCategory = new Map<string, CapabilityInfo[]>();
   for (const cap of data ?? []) {
@@ -117,10 +117,11 @@ function RunForm({ cap }: { cap: CapabilityInfo }) {
       toast.hide();
       push(<ResultView cap={cap} result={result} />);
     } catch (e) {
-      const { title, message } = describeError(e);
+      const { title, message, primaryAction } = describeError(e);
       toast.style = Toast.Style.Failure;
       toast.title = title;
       toast.message = message;
+      toast.primaryAction = primaryAction;
     }
   }
 

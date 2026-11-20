@@ -124,7 +124,7 @@
       "title": "API Token",
       "description": "Persistent API token issued in NoteDeck: Settings → Permissions → API tokens.",
       "type": "password",
-      "required": true
+      "required": false
     }
   ],
   "dependencies": {

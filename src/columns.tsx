@@ -4,16 +4,19 @@ import { type AccountPublic, type DeckColumn, describeError, listAccounts, listC
 
 /** カラム一覧 → 選ぶと `notedeck://column/<id>` で NoteDeck 側をフォーカスする */
 export default function Columns() {
-  const { data, isLoading, error } = usePromise(async () => {
-    const [columns, accounts] = await Promise.all([listColumns(), listAccounts().catch(() => [] as AccountPublic[])]);
-    const byId = new Map(accounts.map((a) => [a.id, a]));
-    return columns.map((c) => ({ column: c, account: c.accountId ? byId.get(c.accountId) : undefined }));
-  });
-
-  if (error) {
-    const { title, message } = describeError(error);
-    showToast({ style: Toast.Style.Failure, title, message });
-  }
+  const { data, isLoading } = usePromise(
+    async () => {
+      const [columns, accounts] = await Promise.all([listColumns(), listAccounts().catch(() => [] as AccountPublic[])]);
+      const byId = new Map(accounts.map((a) => [a.id, a]));
+      return columns.map((c) => ({ column: c, account: c.accountId ? byId.get(c.accountId) : undefined }));
+    },
+    [],
+    {
+      onError: (e) => {
+        showToast({ style: Toast.Style.Failure, ...describeError(e) });
+      },
+    },
+  );
 
   return (
     <List isLoading={isLoading} searchBarPlaceholder="Filter columns…">

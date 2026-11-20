@@ -1,4 +1,4 @@
-import { getPreferenceValues, open } from "@raycast/api";
+import { getPreferenceValues, open, openExtensionPreferences, type Toast } from "@raycast/api";
 
 /**
  * NoteDeck の内蔵 HTTP API (既定 127.0.0.1:19820) の薄いクライアント。
@@ -7,7 +7,7 @@ import { getPreferenceValues, open } from "@raycast/api";
 
 export interface Preferences {
   baseUrl?: string;
-  token: string;
+  token?: string;
 }
 
 export interface AccountPublic {
@@ -66,11 +66,22 @@ export class NoteDeckApiError extends Error {
 function prefs(): Required<Preferences> {
   const p = getPreferenceValues<Preferences>();
   const baseUrl = (p.baseUrl?.trim() || "http://127.0.0.1:19820").replace(/\/+$/, "");
-  return { baseUrl, token: p.token };
+  return { baseUrl, token: p.token?.trim() ?? "" };
+}
+
+function isLoopback(baseUrl: string): boolean {
+  try {
+    return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(baseUrl).hostname);
+  } catch {
+    return false;
+  }
 }
 
 async function request<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
   const { baseUrl, token } = prefs();
+  // トークンは手元の NoteDeck にしか送らない (平文 http で外へ出さない)
+  if (!isLoopback(baseUrl)) throw new NoteDeckApiError(0, "not_loopback", baseUrl);
+  if (!token) throw new NoteDeckApiError(0, "no_token", "API token is not set");
   let res: Response;
   try {
     res = await fetch(`${baseUrl}${path}`, {
@@ -87,6 +98,10 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown):
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
+    // execute は `{ ok: false, code, error }`、それ以外のルートは `{ error: CODE, message }` を返す
+    if (typeof data.code !== "string" && typeof data.error === "string" && typeof data.message === "string") {
+      throw new NoteDeckApiError(res.status, data.error.toLowerCase(), data.message);
+    }
     const code = typeof data.code === "string" ? data.code : res.status === 401 ? "unauthorized" : "http_error";
     const message = typeof data.error === "string" ? data.error : `${res.status} ${res.statusText}`;
     throw new NoteDeckApiError(res.status, code, message);
@@ -135,15 +150,36 @@ export async function openDeepLink(path: string, params?: Record<string, string 
 }
 
 /** 人向けのエラー文。NoteDeck 側の権限 / 確認の仕組みに沿って案内する */
-export function describeError(e: unknown): { title: string; message?: string } {
+export function describeError(e: unknown): {
+  title: string;
+  message?: string;
+  primaryAction?: Toast.ActionOptions;
+} {
+  const openPreferences = { title: "Open Extension Preferences", onAction: () => openExtensionPreferences() };
   if (!(e instanceof NoteDeckApiError)) {
     return { title: "Failed", message: e instanceof Error ? e.message : String(e) };
   }
   switch (e.code) {
     case "unreachable":
       return { title: "NoteDeck is not running", message: "Start NoteDeck, or check the API URL in preferences." };
+    case "no_token":
+      return {
+        title: "API token is not set",
+        message: "Issue a token in NoteDeck (Settings → Permissions → API tokens) and paste it into the preferences.",
+        primaryAction: openPreferences,
+      };
+    case "not_loopback":
+      return {
+        title: "API URL must be on this machine",
+        message: `Use 127.0.0.1, localhost or [::1]. The token was not sent to ${e.message}`,
+        primaryAction: openPreferences,
+      };
     case "unauthorized":
-      return { title: "Invalid API token", message: "Issue a token in NoteDeck: Settings → Permissions → API tokens." };
+      return {
+        title: "Invalid API token",
+        message: "Issue a token in NoteDeck: Settings → Permissions → API tokens.",
+        primaryAction: openPreferences,
+      };
     case "permission_denied":
       return {
         title: "Not allowed for external tools",

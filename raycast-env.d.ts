@@ -11,7 +11,7 @@ type ExtensionPreferences = {
   /** NoteDeck API URL - Base URL of the built-in HTTP API. Leave the default unless you changed the port. */
   "baseUrl": string,
   /** API Token - Persistent API token issued in NoteDeck: Settings → Permissions → API tokens. */
-  "token": string
+  "token"?: string
 }
 
 /** Preferences accessible in all the extension's commands */

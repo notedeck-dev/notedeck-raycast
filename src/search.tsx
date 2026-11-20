@@ -3,14 +3,16 @@ import { usePromise } from "@raycast/utils";
 import { useState } from "react";
 import { type AccountPublic, describeError, execute, listAccounts } from "./api";
 
-/** `notes.searchArchive` の 1 行 (note projection + accountId / serverHost) */
+/**
+ * `notes.searchArchive` の 1 行 (note projection + accountId / serverHost)。
+ * CW 付きは本文の代わりに `[CW: …]` が text に入る
+ */
 interface ArchiveHit {
   id: string;
-  text: string | null;
-  cw: string | null;
+  userId: string;
+  username: string;
+  text?: string;
   createdAt: string;
-  visibility?: string;
-  user: { id: string; username: string; host: string | null; name: string | null };
   accountId: string;
   serverHost: string;
 }
@@ -28,38 +30,43 @@ interface Memo {
  */
 export default function Search() {
   const [query, setQuery] = useState("");
-  const accounts = usePromise(async () => (await listAccounts()).filter((a) => a.hasToken));
+  const onError = (e: unknown) => {
+    showToast({ style: Toast.Style.Failure, ...describeError(e) });
+  };
+  const accounts = usePromise(async () => (await listAccounts()).filter((a) => a.hasToken), [], { onError });
 
   const results = usePromise(
     async (q: string, list: AccountPublic[] | undefined) => {
-      if (!list || !q.trim())
-        return { notes: [] as Array<ArchiveHit & { account: AccountPublic }>, memos: [] as Memo[] };
+      if (!list) return { notes: [] as Array<ArchiveHit & { account: AccountPublic }>, memos: [] as Memo[] };
+      // 片方が権限で弾かれても、もう片方の結果は出す (エラーは 1 件だけ知らせる)
+      let failed: unknown;
+      const keep = (e: unknown): never[] => {
+        failed ??= e;
+        return [];
+      };
       const [perAccount, memos] = await Promise.all([
         Promise.all(
           list.map(async (account) => {
             const hits = await execute<ArchiveHit[]>("notes.searchArchive", {
-              query: q.trim(),
+              ...(q.trim() ? { query: q.trim() } : {}),
+              // 自分の投稿だけ: 索引はそのアカウントの画面に流れてきた全員のノートを持つ
+              author: `${account.username}@${account.host}`,
               accountIds: [account.id],
               includePrivate: true,
               limit: 50,
-            }).catch(() => [] as ArchiveHit[]);
-            // 自分の投稿だけ: 索引はそのアカウントの画面に流れてきた全員のノートを持つ
-            return hits.filter((h) => h.user?.id === account.userId).map((h) => ({ ...h, account }));
+            }).catch(keep);
+            return hits.filter((h) => h.userId === account.userId).map((h) => ({ ...h, account }));
           }),
         ),
-        execute<Memo[]>("memos.list", { ...(query ? { query } : {}), limit: 20 }).catch(() => [] as Memo[]),
+        execute<Memo[]>("memos.list", { ...(q ? { query: q } : {}), limit: 20 }).catch(keep),
       ]);
+      if (failed) onError(failed);
       const notes = perAccount.flat().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       return { notes, memos };
     },
     [query, accounts.data],
+    { onError },
   );
-
-  const error = accounts.error ?? results.error;
-  if (error) {
-    const { title, message } = describeError(error);
-    showToast({ style: Toast.Style.Failure, title, message });
-  }
 
   return (
     <List
@@ -68,20 +75,23 @@ export default function Search() {
       onSearchTextChange={setQuery}
       throttle
     >
-      <List.Section title="My notes" subtitle={String(results.data?.notes.length ?? 0)}>
+      <List.Section title="My Notes" subtitle={String(results.data?.notes.length ?? 0)}>
         {(results.data?.notes ?? []).map((n) => (
           <List.Item
             key={`${n.accountId}:${n.id}`}
             icon={Icon.Message}
-            title={oneLine(n.cw ? `[CW] ${n.cw}` : (n.text ?? ""))}
-            subtitle={n.cw ? oneLine(n.text ?? "") : undefined}
+            title={oneLine(n.text ?? "")}
             accessories={[{ text: `@${n.account.username}@${n.account.host}` }, { date: new Date(n.createdAt) }]}
             actions={
               <ActionPanel>
                 <Action
                   title="Open in NoteDeck"
                   icon={Icon.ArrowRight}
-                  onAction={() => open(`notedeck://${n.account.host}/note/${encodeURIComponent(n.id)}`)}
+                  onAction={() =>
+                    open(
+                      `notedeck://${n.account.host}/note/${encodeURIComponent(n.id)}?account=${encodeURIComponent(n.account.userId)}`,
+                    )
+                  }
                 />
                 <Action.CopyToClipboard title="Copy Text" content={n.text ?? ""} />
                 <Action.CopyToClipboard title="Copy Note ID" content={n.id} />
